@@ -1,6 +1,6 @@
 # 🏎️ DevOps Racer — Flask & MongoDB
 
-A browser-based car racing game built using **Flask, JavaScript, HTML, CSS, MongoDB, and Docker**. Players control a car, avoid traffic, track their score, and save scores to MongoDB through Flask REST APIs.
+A browser-based car racing game built using **Flask, JavaScript, HTML, CSS, MongoDB, and Docker Compose**. Players control a car, avoid traffic, track their score, and save scores to MongoDB through Flask REST APIs.
 
 ## 🚀 Features
 
@@ -13,6 +13,9 @@ A browser-based car racing game built using **Flask, JavaScript, HTML, CSS, Mong
 - Score persistence using MongoDB.
 - REST APIs for score submission and leaderboard.
 - Dockerized Flask application.
+- Multi-container deployment using Docker Compose.
+- Persistent MongoDB storage using Docker volumes.
+- Container communication through a custom Docker network.
 
 ## 🛠️ Technology Stack
 
@@ -27,26 +30,37 @@ A browser-based car racing game built using **Flask, JavaScript, HTML, CSS, Mong
 | JavaScript | Game logic |
 | Canvas API | Game rendering |
 | Docker | Containerization |
+| Docker Compose | Multi-container orchestration |
 
 ## 🏗️ Architecture
 
 ```text
-Player Browser
-     |
-     v
-HTML + CSS + JavaScript
-     |
-     v
-Flask Application (Docker)
-     |
-     v
-MongoDB Container
-     |
-     v
-devops_project Database
-     |
-     v
-scores Collection
+                    Player Browser
+                         |
+                         v
+                 Flask Application
+                   Port 5000
+                  (car_racer)
+                         |
+                         v
+              Docker Network: flask-net
+                         |
+                         v
+                    MongoDB
+                   (mongofb)
+                  Port 27017
+                         |
+                         v
+                   car_vol
+                (Docker Volume)
+                         |
+                         v
+                  devops_project
+                      Database
+                         |
+                         v
+                     scores
+                   Collection
 ```
 
 ## 📂 Project Structure
@@ -55,6 +69,7 @@ scores Collection
 car-game/
 ├── app.py
 ├── Dockerfile
+├── docker-compose.yml
 ├── requirements.txt
 ├── README.md
 └── templates/
@@ -65,15 +80,15 @@ car-game/
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/` | GET | Game interface |
-| `/score` | POST | Save player score to MongoDB |
-| `/leaderboard` | GET | Retrieve top 10 scores |
+| `/` | GET | Loads the game interface |
+| `/score` | POST | Saves player score to MongoDB |
+| `/leaderboard` | GET | Retrieves top 10 scores |
 
 ### Save Score
 
-`POST /score`
+**Endpoint:** `POST /score`
 
-Example JSON:
+Example JSON request:
 
 ```json
 {
@@ -82,91 +97,150 @@ Example JSON:
 }
 ```
 
+Successful response:
+
+```json
+{
+  "message": "Score saved"
+}
+```
+
 ### Leaderboard
 
-`GET /leaderboard`
+**Endpoint:** `GET /leaderboard`
 
 Returns the top 10 scores sorted in descending order.
 
-## 🐳 Docker Deployment
+## 🐳 Docker Compose Deployment
 
-### 1. Build the image
+### 1. Clone the repository
 
 ```bash
-docker build -t car-game:v3 .
+git clone git@github.com:girishdevps/REPOSITORY-NAME.git
+cd REPOSITORY-NAME
 ```
 
-### 2. Run the container
-
-Ensure MongoDB container `mongofb` is running on the same Docker network.
+### 2. Build and start the containers
 
 ```bash
-docker run -d \
-  --name car-game \
-  --network dev-net \
-  -p 5000:5000 \
-  car-game:v3
+docker compose up -d --build
 ```
 
-### 3. Verify the container
+This command builds the Flask application image and starts both Flask and MongoDB containers.
+
+### 3. Verify running containers
 
 ```bash
-docker ps
+docker compose ps
 ```
 
 ### 4. View container logs
 
+Flask logs:
+
 ```bash
-docker logs car-game
+docker compose logs -f flaskapp
+```
+
+MongoDB logs:
+
+```bash
+docker compose logs -f mongodb
+```
+
+### 5. Stop the application
+
+```bash
+docker compose down
+```
+
+Containers are stopped and removed, but MongoDB data remains stored in the named volume.
+
+### 6. Rebuild the application
+
+```bash
+docker compose up -d --build
 ```
 
 ## 🌐 Access the Application
+
+Open the application in your browser:
+
+```text
+http://localhost:5000
+```
+
+If deployed on an AWS EC2 instance:
 
 ```text
 http://EC2-PUBLIC-IP:5000
 ```
 
+Ensure the appropriate inbound rule is configured in the EC2 security group.
+
 ## 🗄️ MongoDB Configuration
 
-The application connects to MongoDB using the following connection string:
+MongoDB runs inside its own container and communicates with the Flask container through the custom Docker network `flask-net`.
 
-```python
-mongodb://mongofb:27017/
-```
-
-Database:
+**Connection URI:**
 
 ```text
-devops_project
+mongodb://mongofb:27017/devops_project
 ```
 
-Collection:
+| Configuration | Value |
+|---|---|
+| Container Name | `mongofb` |
+| MongoDB Port | `27017` |
+| Database | `devops_project` |
+| Collection | `scores` |
+| Docker Volume | `car_vol` |
+| Mount Path | `/data/db` |
+| Docker Network | `flask-net` |
 
-```text
-scores
+### Verify stored scores
+
+Enter the MongoDB container:
+
+```bash
+docker exec -it mongofb mongosh
+```
+
+Then execute:
+
+```javascript
+use devops_project
+db.scores.find().pretty()
+```
+
+Count stored scores:
+
+```javascript
+db.scores.countDocuments()
 ```
 
 ## 🧪 Testing
 
-- Start the game in a browser.
+- Start the application using Docker Compose.
+- Open the game in a browser.
 - Enter a player name.
 - Play until collision.
 - Verify that the score is submitted.
 - Open `/leaderboard` to verify saved scores.
-- Check container logs using `docker logs car-game`.
+- Inspect MongoDB documents using `mongosh`.
+- Check container logs using Docker Compose.
 
 ## 📌 Future Improvements
 
-- Docker Compose for multi-container deployment.
 - CI/CD automation using GitHub Actions.
 - AWS deployment.
 - Improved game graphics and animations.
 - Difficulty levels and increasing speed.
-- Persistent MongoDB storage using Docker volumes.
-- Leaderboard UI improvements.
 - Monitoring and logging.
+- Leaderboard UI improvements.
+- Container health checks.
 
 ---
 
-**Built as a hands-on containerized application project to practice Flask, MongoDB, Docker, API integration, and deployment workflows.**
+**Built as a hands-on containerized application project to practice Flask, MongoDB, Docker, Docker Compose, container networking, persistent storage, API integration, and deployment workflows.**
 
